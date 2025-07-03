@@ -1,4 +1,3 @@
-openai>=1.2.0
 streamlit
-beautifulsoup4
+newspaper3k
 requests
