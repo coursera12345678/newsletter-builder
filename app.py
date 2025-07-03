@@ -1,6 +1,7 @@
 import streamlit as st
 import openai
-from newspaper import Article
+import requests
+from bs4 import BeautifulSoup
 
 st.set_page_config(page_title="📰 Auto Newsletter Generator")
 st.title("📰 Auto Newsletter Generator")
@@ -8,29 +9,43 @@ st.caption("Paste 2–3 article links from the same site to generate a newslette
 
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# User input
+def extract_text_from_url(url):
+    try:
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Try to extract meaningful text
+        article = soup.find('article')
+        if article:
+            paragraphs = article.find_all('p')
+        else:
+            paragraphs = soup.find_all('p')
+
+        text = ' '.join([p.get_text() for p in paragraphs])
+        return text.strip()
+    except Exception as e:
+        return f"Error fetching {url}: {e}"
+
 urls_input = st.text_area("Paste article URLs (one per line)")
 
 if st.button("Generate Newsletter") and urls_input:
     urls = [url.strip() for url in urls_input.split("\n") if url.strip()]
-
     summaries = []
 
     for url in urls:
-        try:
-            article = Article(url)
-            article.download()
-            article.parse()
-            article.nlp()
+        content = extract_text_from_url(url)
+        if content.startswith("Error"):
+            st.warning(content)
+            continue
 
-            prompt = f"""
-You are an assistant helping write a newsletter. Summarize the following article in a clear, engaging, and concise way as if it's a section in a tech newsletter. Make it informative but punchy, in 2–4 sentences:
+        prompt = f"""
+You're an assistant helping write a newsletter. Summarize the following article in a clear, engaging, and concise way as if it's a section in a tech newsletter. Make it informative but punchy, in 2–4 sentences:
 
-Title: {article.title}
-
-Text:
-{article.text[:1500]}... (truncated)
+Article text:
+{content[:2000]}... (truncated)
 """
+
+        try:
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
@@ -38,31 +53,26 @@ Text:
                     {"role": "user", "content": prompt},
                 ]
             )
-
-            summary = f"**{article.title}**\n\n{response['choices'][0]['message']['content'].strip()}\n\n🔗 [Read more]({url})"
-            summaries.append(summary)
-
+            summary = response['choices'][0]['message']['content'].strip()
+            summaries.append(f"**{url}**\n\n{summary}\n\n🔗 [Read more]({url})")
         except Exception as e:
-            st.warning(f"Could not process {url}: {e}")
+            st.error(f"OpenAI failed on {url}: {e}")
 
-    # Render Newsletter
+    # Show newsletter
     st.markdown("## 🧾 Final Newsletter")
-
     if summaries:
-        main = summaries[0]
         st.subheader("Top Story")
-        st.write(main)
+        st.write(summaries[0])
 
         if len(summaries) > 1:
-            other = summaries[1:]
             st.subheader("Other Stories")
-            for story in other:
+            for story in summaries[1:]:
                 st.write(story)
 
         st.subheader("⚡ Quick Reads")
-        st.write("- Add a few one-liner news bits or updates here.")
+        st.write("- Add a few one-liner updates here.")
 
         st.subheader("📚 Recommended Reads")
-        st.write("- Link out to opinion pieces or deep dives relevant to your audience.")
+        st.write("- Add some deep dives or essays here.")
     else:
-        st.error("No stories could be generated. Please check your URLs.")
+        st.error("No summaries generated. Please try again.")
