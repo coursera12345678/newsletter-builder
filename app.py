@@ -4,7 +4,8 @@ from bs4 import BeautifulSoup
 
 # Read Gemini API key from Streamlit secrets
 API_KEY = st.secrets["GEMINI_API_KEY"]
-API_URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent?key={API_KEY}"
+
 
 def get_article_text(url):
     try:
