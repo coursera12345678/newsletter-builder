@@ -4,7 +4,7 @@ from bs4 import BeautifulSoup
 
 # Read Gemini API key from Streamlit secrets
 API_KEY = st.secrets["GEMINI_API_KEY"]
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
+API_URL = f"https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key={API_KEY}"
 
 def get_article_text(url):
     try:
@@ -28,12 +28,12 @@ def get_gemini_summary(text):
         ]
     }
     try:
-        response = requests.post(API_URL, json=payload)
+        response = requests.post(API_URL, json=payload, headers={"Content-Type": "application/json"})
         response.raise_for_status()
         data = response.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception as e:
-        return f"⚠️ Error generating summary: {e}"
+        return f"⚠️ Error generating summary: {str(e)}"
 
 def main():
     st.title("📰 Auto Newsletter Generator with Gemini + Streamlit")
