@@ -2,8 +2,8 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 
-API_KEY = "AIzaSyAvN4cIp7y9WJFVzf7bMUbemVjEiyxB2cs"
-API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
+API_KEY = st.secrets["GEMINI_API_KEY"]
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateText?key={API_KEY}"
 
 def get_article_text(url):
     try:
@@ -12,19 +12,21 @@ def get_article_text(url):
         soup = BeautifulSoup(response.text, "html.parser")
         paragraphs = soup.find_all('p')
         text = ' '.join(p.get_text() for p in paragraphs)
-        return text[:2000]  # Limit to first 2000 characters
-    except Exception as e:
+        return text[:2000]  # Limit to first 2000 characters to avoid long inputs
+    except Exception:
         return None
 
 def get_gemini_summary(text):
     payload = {
-        "contents": [{"parts": [{"text": text}]}]
+        "prompt": {"text": f"Summarize this article like it's a newsletter section. Make it clear and engaging: {text}"},
+        "temperature": 0.7,
+        "maxOutputTokens": 256,
     }
     try:
         response = requests.post(API_URL, json=payload)
         response.raise_for_status()
         data = response.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        return data["candidates"][0]["output"]
     except Exception as e:
         return f"⚠️ Error generating summary: {e}"
 
