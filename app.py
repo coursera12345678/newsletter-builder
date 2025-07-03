@@ -2,71 +2,62 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 
-st.set_page_config(page_title="📰 Auto Newsletter Generator", layout="centered")
-st.title("📰 Auto Newsletter Generator")
-st.caption("Paste 2–3 article links from the same site to generate a styled newsletter.")
+API_KEY = "PASTE_YOUR_GEMINI_API_KEY_HERE"
+API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
 
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-
-# Input
-urls_input = st.text_area("Paste article URLs (one per line)")
-
-def fetch_article_text(url):
+def get_article_text(url):
     try:
-        res = requests.get(url, timeout=10)
-        soup = BeautifulSoup(res.text, 'html.parser')
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, "html.parser")
         paragraphs = soup.find_all('p')
-        return ' '.join([p.get_text() for p in paragraphs])
+        text = ' '.join(p.get_text() for p in paragraphs)
+        return text[:2000]  # Limit to first 2000 characters
     except Exception as e:
-        return f"Error fetching article: {e}"
+        return None
 
-def summarize_with_groq(title, content):
-    prompt = f"""
-You are a copywriter writing a newsletter. Summarize this article in 2–4 sentences in a clear, engaging, and informative tone.
+def get_gemini_summary(text):
+    payload = {
+        "contents": [{"parts": [{"text": text}]}]
+    }
+    try:
+        response = requests.post(API_URL, json=payload)
+        response.raise_for_status()
+        data = response.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+    except Exception as e:
+        return f"⚠️ Error generating summary: {e}"
 
-Title: {title}
+def main():
+    st.title("📰 Auto Newsletter Generator with Gemini + Streamlit")
+    st.write("Paste article URLs below (one per line), then click **Summarize**.")
 
-Content:
-{content[:1500]}...(truncated)
-"""
-    response = requests.post(
-        "https://api.groq.com/openai/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": "mixtral-8x7b-32768",
-            "messages": [
-                {"role": "system", "content": "You write concise tech newsletter summaries."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7
-        }
-    )
+    urls_text = st.text_area("Article URLs", height=150)
 
-    data = response.json()
-    return data['choices'][0]['message']['content'].strip()
+    if st.button("Summarize"):
+        if not urls_text.strip():
+            st.error("Please enter at least one URL.")
+            return
 
-if st.button("Generate Newsletter") and urls_input:
-    urls = [url.strip() for url in urls_input.split("\n") if url.strip()]
-    summaries = []
+        urls = [url.strip() for url in urls_text.strip().split("\n") if url.strip()]
+        summaries = []
 
-    for url in urls:
-        article_text = fetch_article_text(url)
-        title = url.split("/")[-1].replace("-", " ").title()
-        summary = summarize_with_groq(title, article_text)
-        summaries.append((title, summary, url))
+        for url in urls:
+            st.write(f"🔍 Fetching article from: {url}")
+            article_text = get_article_text(url)
+            if not article_text:
+                st.warning(f"⚠️ Could not fetch or parse the article: {url}")
+                summaries.append("⚠️ Failed to fetch article text.")
+                continue
 
-    # Output like MailerLite style
-    st.markdown("---")
-    st.markdown("<h2 style='font-family:sans-serif;color:#111;'>🧾 Weekly Digest</h2>", unsafe_allow_html=True)
+            st.write("✍️ Generating summary...")
+            summary = get_gemini_summary(article_text)
+            summaries.append(summary)
 
-    for title, summary, link in summaries:
-        st.markdown(f"""
-        <div style='background-color:#f9f9f9;padding:20px;border-radius:10px;margin-bottom:20px;'>
-            <h3 style='color:#222;margin-bottom:10px;'>{title}</h3>
-            <p style='color:#444;font-size:16px;line-height:1.6;'>{summary}</p>
-            <a href='{link}' style='color:#0066cc;text-decoration:none;'>Read more →</a>
-        </div>
-        """, unsafe_allow_html=True)
+        st.header("📄 Summaries")
+        for i, summary in enumerate(summaries, start=1):
+            st.subheader(f"Article {i}")
+            st.write(summary)
+
+if __name__ == "__main__":
+    main()
