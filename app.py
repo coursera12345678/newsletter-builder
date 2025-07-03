@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 API_KEY = st.secrets["GEMINI_API_KEY"]
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/text-bison-001:generateText?key={API_KEY}"
 
+
+
 def get_article_text(url):
     try:
         response = requests.get(url, timeout=10)
