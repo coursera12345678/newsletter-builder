@@ -1,4 +1,4 @@
+openai>=1.0.0
 streamlit
-openai
-requests
 beautifulsoup4
+requests
