@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 
-API_KEY = "PASTE_YOUR_GEMINI_API_KEY_HERE"
+API_KEY = "AIzaSyAvN4cIp7y9WJFVzf7bMUbemVjEiyxB2cs"
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
 
 def get_article_text(url):
